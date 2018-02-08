@@ -7,8 +7,8 @@ OUT_SIZE=1
 
 def add_layer(in_layer, in_size, out_size, name):
 	with tf.name_scope(name):
-		W=tf.Variable(tf.random_normal(dtype=tf.float32, shape=[in_size, out_size]), name='W')
-		b=tf.Variable(tf.random_normal(dtype=tf.float32, shape=[out_size]), name='b')
+		W=tf.Variable(tf.random_normal(dtype=tf.float32, shape=[in_size, out_size], stddev=0.1), name='W')
+		b=tf.Variable(tf.zeros(dtype=tf.float32, shape=[out_size]), name='b')
 		out=tf.nn.bias_add(tf.matmul(in_layer, W), b)
 	return out
 
@@ -18,18 +18,18 @@ class Network:
 
 		if not load_model:
 			self.X=tf.placeholder(tf.float32, shape=[None, in_size], name='input')
-			self.y_=tf.placeholder(tf.float32, shape=[None, out_size], name='labels')
+			self.y_=tf.placeholder(tf.float32, shape=[None], name='labels')
 			tf.add_to_collection('input', self.X)
 
-			self.h1=add_layer(self.X, 4, 128, name='h1')
-			self.h2=add_layer(self.h1, 128, 256, name='h2')
-			self.y=tf.reduce_max(tf.sigmoid(add_layer(self.h2, 256, 2, 'h3'), name='y'),
+			self.h1=tf.nn.sigmoid(add_layer(self.X, 4, 256, name='h1'))
+			self.h2=add_layer(self.h1, 256, 512, name='h2')
+			self.y=tf.reduce_max(add_layer(self.h2, 512, 2, 'h3'),
 				reduction_indices=[1])
-			print 'self.y shape', self.y_.get_shape()
+			#print 'self.y shape', self.y_.get_shape()
 			tf.add_to_collection('y', self.y)
 
 			self.cost=tf.losses.mean_squared_error(labels=self.y_, predictions=self.y)
-			self.train_step=tf.train.AdamOptimizer(0.01).minimize(self.cost)
+			self.train_step=tf.train.AdamOptimizer(0.00000001).minimize(self.cost)
 			tf.add_to_collection('cost', self.cost)
 			tf.add_to_collection('train_step', self.train_step)
 
@@ -49,24 +49,27 @@ class Network:
 	def get_batch(self, batch_size):
 		my_data = np.genfromtxt('data/data.csv', delimiter=',')
 		np.random.shuffle(my_data)
+		#print 'no batches:', my_data.shape[0]/batch_size
 		for batch in range(0, my_data.shape[0], batch_size):
 			X = my_data[batch:batch+batch_size, 0:4]
 			X = X.reshape([X.shape[0], 4])
 			next_X=my_data[batch:batch+batch_size, 7:]
 			next_X = next_X.reshape([X.shape[0], 4])
-			print next_X.shape
+			#print next_X.shape
 			next_Q=self.sess.run(self.y, feed_dict={self.X:next_X})
 			#next_Q=next_Q.reshape(next_Q.shape[0],1)
 			y_ = my_data[batch:batch+batch_size, 2] + np.multiply(my_data[batch:batch+batch_size, 3], next_Q)
-			y_=y_.reshape(y_.shape[0], 1)
-			print y_.shape
-			#yield X, y_
+			#y_=y_.reshape(y_.shape[0], 1)
+			#print y_.shape
+			yield X, y_
 
-	def train(self, n_epochs=1, batch_size=128, verbose=True, print_every_n=50):
+	def train(self, n_epochs=1000, batch_size=128, verbose=True, print_every_n=10):
+		self.sess.run(tf.global_variables_initializer())
 		for epoch in range(n_epochs):
 			step=0
 			for X_, labels in self.get_batch(batch_size):
 				step+=1;
+				#print step
 				cost_, _= self.sess.run([self.cost, self.train_step],
 					feed_dict={self.X:X_, self.y_:labels})
 				if verbose and step%print_every_n==0:
@@ -82,4 +85,4 @@ if __name__=='__main__':
 	net=Network(4, 1, load_model=False, save_dest='neural_net/net_2')
 	#net=Network(load_model='neural_net/net_2.meta', ckpt_location='neural_net')
 	#net.train()
-	net.get_batch(15)
+	net.train()
