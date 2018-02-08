@@ -26,7 +26,7 @@ class Network:
 			self.X=tf.placeholder(tf.float32, shape=[None, in_size], name='input')
 			self.y_=tf.placeholder(tf.float32, shape=[None], name='labels')
 			self.action=tf.placeholder(tf.int32, shape=[None], name='actions')
-			self.action_one_hot=tf.one_hot(self.action, 2, on_value=1, off_value=0, axis=1)
+			self.action_one_hot=tf.cast(tf.one_hot(self.action, 2, on_value=1, off_value=0, axis=1), tf.float32)
 
 			tf.add_to_collection('input', self.X)
 
@@ -34,14 +34,13 @@ class Network:
 			self.h2=add_layer(self.h1, 256, 512, name='h2')
 			self.y=add_layer(self.h2, 512, 2, 'h3')
 
-			self.y_masked=tf.multiply(self.y, self.action_one_hot)######################################
+			self.y_masked=tf.reduce_sum(tf.multiply(self.y, self.action_one_hot), reduction_indices=[1])######################################
 			self.y_max=tf.reduce_max(self.y, reduction_indices=[1])
 
 			tf.add_to_collection('y', self.y)
 
-			print self.y_.get_shape(), self.y_masked.get_shape()
 			self.cost=tf.losses.mean_squared_error(labels=self.y_, predictions=self.y_masked)
-			self.train_step=tf.train.AdamOptimizer(0.00000001).minimize(self.cost)
+			self.train_step=tf.train.AdamOptimizer(0.001).minimize(self.cost)
 			tf.add_to_collection('cost', self.cost)
 			tf.add_to_collection('train_step', self.train_step)
 
@@ -61,34 +60,47 @@ class Network:
 	def get_batch(self, batch_size):
 		my_data = np.genfromtxt('data/data.csv', delimiter=',')
 		np.random.shuffle(my_data)
-		#print 'no batches:', my_data.shape[0]/batch_size
+
+		state_indices=range(4)
+		action_index=4
+		reward_index=5
+		done_index=6
+		next_state_indices=range(7, 11)
+
+		GAMMA=0.9
+
 		for batch in range(0, my_data.shape[0], batch_size):
-			X = my_data[batch:batch+batch_size, 0:4]
+			state_vec = my_data[batch:batch+batch_size, state_indices]
+			action_vec = my_data[batch:batch+batch_size, action_index]
+			reward_vec = my_data[batch:batch+batch_size, reward_index]
+			done_vec = my_data[batch:batch+batch_size, done_index]
+			next_state_vec = my_data[batch:batch+batch_size, next_state_indices]
+
+			X = state_vec
 			X = X.reshape([X.shape[0], 4])
-			next_X=my_data[batch:batch+batch_size, 7:]
+
+			next_X=next_state_vec
 			next_X = next_X.reshape([X.shape[0], 4])
-			#print next_X.shape
-			next_Q=self.sess.run(self.y, feed_dict={self.X:next_X})
-			#next_Q=next_Q.reshape(next_Q.shape[0],1)
-			y_ = my_data[batch:batch+batch_size, 2] + np.multiply(my_data[batch:batch+batch_size, 3], next_Q)
-			#y_=y_.reshape(y_.shape[0], 1)
-			#print y_.shape
-			yield X, y_
+
+			next_Q=self.sess.run(self.y_max, feed_dict={self.X:next_X})
+
+			y_ = reward_vec + GAMMA*np.multiply((1- done_vec), next_Q)
+
+			yield X, y_, action_vec
 
 	def train(self, n_epochs=1000, batch_size=128, verbose=True, print_every_n=10, save_every_n=10):
 		self.sess.run(tf.global_variables_initializer())
 		for epoch in range(n_epochs):
 			step=0
-			for X_, labels in self.get_batch(batch_size):
+			for X_, labels, action_vec in self.get_batch(batch_size):
 				step+=1
 				self.global_step+=1
-				#print step
-				cost_, _= self.sess.run([self.cost, self.train_step],
-					feed_dict={self.X:X_, self.y_:labels})
+				cost_, _= self.sess.run([self.cost, self.train_step], 
+					feed_dict={self.X:X_, self.y_:labels, self.action:action_vec})
 				if verbose and step%print_every_n==0:
 					print 'epoch:', epoch, 'step:', step, 'cost', cost_ 
 				if step%save_every_n==0:
-					self.saver.save(self.sess, self.save_dest, global_step=0)#self.global_step)
+					self.saver.save(self.sess, self.save_dest, global_step=0)
 
 	def infer(test_data):
 		logits=self.sess.run(self.y, feed_dict={self.X:np.train_data})
@@ -96,7 +108,6 @@ class Network:
 
 
 if __name__=='__main__':
-	#net=Network('neural_net/test_model-0.meta', 'neural_net')
 	net=Network(4, 1, load_model=False, save_dest='neural_net/net_2')
 	#net=Network(load_model='neural_net/net_2-41956.meta', ckpt_location='neural_net')
 	net.train()

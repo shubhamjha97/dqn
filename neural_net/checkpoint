@@ -1,6 +1,2 @@
-model_checkpoint_path: "net_2-41998"
-all_model_checkpoint_paths: "net_2-41956"
-all_model_checkpoint_paths: "net_2-41968"
-all_model_checkpoint_paths: "net_2-41978"
-all_model_checkpoint_paths: "net_2-41988"
-all_model_checkpoint_paths: "net_2-41998"
+model_checkpoint_path: "net_2-0"
+all_model_checkpoint_paths: "net_2-0"
