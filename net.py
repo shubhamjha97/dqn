@@ -25,9 +25,10 @@ class Network:
 			self.h2=add_layer(self.h1, 128, 256, name='h2')
 			self.y=tf.reduce_max(tf.sigmoid(add_layer(self.h2, 256, 2, 'h3'), name='y'),
 				reduction_indices=[1])
+			print 'self.y shape', self.y_.get_shape()
 			tf.add_to_collection('y', self.y)
 
-			self.cost=tf.nn.softmax_cross_entropy_with_logits(labels=self.y_, logits=self.y)
+			self.cost=tf.losses.mean_squared_error(labels=self.y_, predictions=self.y)
 			self.train_step=tf.train.AdamOptimizer(0.01).minimize(self.cost)
 			tf.add_to_collection('cost', self.cost)
 			tf.add_to_collection('train_step', self.train_step)
@@ -55,9 +56,11 @@ class Network:
 			next_X = next_X.reshape([X.shape[0], 4])
 			print next_X.shape
 			next_Q=self.sess.run(self.y, feed_dict={self.X:next_X})
-			next_Q=next_Q.reshape(next_Q.shape[0],1)
-			y_ = my_data[batch:batch+batch_size, 2] + my_data[batch:batch+batch_size, 3]*next_Q
-			yield X, y_
+			#next_Q=next_Q.reshape(next_Q.shape[0],1)
+			y_ = my_data[batch:batch+batch_size, 2] + np.multiply(my_data[batch:batch+batch_size, 3], next_Q)
+			y_=y_.reshape(y_.shape[0], 1)
+			print y_.shape
+			#yield X, y_
 
 	def train(self, n_epochs=1, batch_size=128, verbose=True, print_every_n=50):
 		for epoch in range(n_epochs):
@@ -78,4 +81,5 @@ if __name__=='__main__':
 	#net=Network('neural_net/test_model-0.meta', 'neural_net')
 	net=Network(4, 1, load_model=False, save_dest='neural_net/net_2')
 	#net=Network(load_model='neural_net/net_2.meta', ckpt_location='neural_net')
-	net.train()
+	#net.train()
+	net.get_batch(15)
