@@ -48,17 +48,26 @@ def generate_sample_data(env, render=False, verbose=False, n_episodes=10):
 data_accumulator=[]
 def write_data(data_point, thresh=500):
 	global data_accumulator
-	data_accumulator.append(data_point)
+	curr_sample=[]
+	curr_sample.extend(data_point[0])
+	curr_sample.append(data_point[1])
+	curr_sample.append(data_point[2])
+	curr_sample.append(data_point[3])
+	curr_sample.extend(data_point[4])
+	#data.append(curr_sample)
+	data_accumulator.append(curr_sample)
+	#print 'data acc', len(data_accumulator)
 	if len(data_accumulator)==thresh:
 		data_accumulator=np.array(data_accumulator)
 		f=open('data/data.csv', 'a+')
 		np.savetxt(f, data_accumulator, fmt='%5s', delimiter=",")
 		data_accumulator=[]
+		f.close()
 
-if __name__=='__main__':
+def main_train():
 	env=gym.make('CartPole-v0')
-	net=Network(load_model='neural_net/net_2-0.meta', ckpt_location='neural_net')
-	a=Agent(env, 'neural_net/net_2-0.meta', 'neural_net')
+	net=Network(load_model='neural_net/net_2-14103.meta', ckpt_location='neural_net')
+	a=Agent(env, 'neural_net/net_2-14103.meta', 'neural_net')
 
 	NO_EPISODES=100
 	TIMESTEPS=100
@@ -66,17 +75,14 @@ if __name__=='__main__':
 	DISCOUNT_FACTOR=0.9 #implement
 	TRAIN_EVERY_N=5
 	RENDER_EVERY_N=5
-	VERBOSE=False
+	VERBOSE=True
 	MODIFIED_REWARD=True
 	PENALTY=-10
 	WRITE_EVERY_N=50
 	NO_EPOCHS=2
-	BATCH_SIZE=128
+	BATCH_SIZE=128	
 	
-	generate_sample_data(env, render=False, verbose=False, n_episodes=100)
-	
-	
-	'''for ep in range(NO_EPISODES):
+	for ep in range(NO_EPISODES):
 		prev_state=env.reset()
 		for t in range(TIMESTEPS):
 			if random.uniform(0, 1)>EXPLORATION_PROB:
@@ -88,7 +94,7 @@ if __name__=='__main__':
 				env.render()
 			if done and MODIFIED_REWARD:
 				reward=PENALTY
-			data_point=[prev_state, action, reward, new_state]
+			data_point=[prev_state, action, reward, done, new_state]
 			write_data(data_point, WRITE_EVERY_N)
 			prev_state=new_state
 			if done:
@@ -96,4 +102,7 @@ if __name__=='__main__':
 					print "episode:", ep, "score:", t
 				break
 		#if ep%TRAIN_EVERY_N==0:
-		#	net.train()'''
+		#	net.train()
+
+if __name__=='__main__':
+	main_train()
