@@ -14,12 +14,7 @@ def add_layer(in_layer, in_size, out_size, name):
 
 class Network:
 
-	def create_cost(self, reward_vec, y, y_):
-		pass
-
-
 	def __init__(self, in_size=None, out_size=None, load_model=False, ckpt_location='none', save_dest='none', data_location='data/data.csv'):
-
 		
 		if not load_model:
 			self.save_dest=save_dest
@@ -48,20 +43,24 @@ class Network:
 			tf.add_to_collection('train_step', self.train_step)
 
 			self.saver=tf.train.Saver(max_to_keep=5)
+			#self.saver=tf.train.Saver(write_version=tf.train.SaverDef.V1, max_to_keep=1)
 			self.global_step=0
 
 			self.sess=tf.Session()
 		
 			self.sess.run(tf.global_variables_initializer())
-			self.saver.save(self.sess, save_dest, global_step=0)#self.global_step)
+			self.saver.save(self.sess, save_dest, write_meta_graph=True)
+			self.sess.run(tf.global_variables_initializer())
+
 			
 		else:
 			self.save_dest=save_dest
 			self.ckpt_location=ckpt_location
 			self.global_step=0
+
 			self.sess=tf.Session()    
 			self.saver = tf.train.import_meta_graph(load_model)
-			self.saver.restore(self.sess, tf.train.latest_checkpoint(ckpt_location))
+			
 			self.X=tf.get_collection('input')[0]
 			self.y_=tf.get_collection('target')[0]
 			self.cost=tf.get_collection('cost')[0]
@@ -69,6 +68,7 @@ class Network:
 			self.y=tf.get_collection('y')[0]
 			self.y_max=tf.get_collection('y_max')[0]
 			self.action=tf.get_collection('action')[0]
+			self.saver.restore(self.sess, tf.train.latest_checkpoint(ckpt_location))
 
 	def get_batch(self, batch_size):
 		my_data = np.genfromtxt('data/data.csv', delimiter=',')
@@ -101,8 +101,7 @@ class Network:
 
 			yield X, y_, action_vec
 
-	def train(self, n_epochs=1000, batch_size=128, verbose=True, print_every_n=10, save_every_n=10):
-		self.sess.run(tf.global_variables_initializer())
+	def train(self, n_epochs=10, batch_size=128, verbose=True, print_every_n=10, save_every_n=10):
 		for epoch in range(n_epochs):
 			step=0
 			for X_, labels, action_vec in self.get_batch(batch_size):
@@ -114,7 +113,7 @@ class Network:
 					print 'epoch:', epoch, 'step:', step, 'cost', cost_ 
 				if step%save_every_n==0:
 					#print self.save_dest
-					self.saver.save(self.sess, self.save_dest, global_step=0)
+					self.saver.save(self.sess, self.save_dest, write_meta_graph=False)
 
 	def infer(test_data):
 		logits=self.sess.run(self.y, feed_dict={self.X:np.train_data})
@@ -122,10 +121,10 @@ class Network:
 
 
 if __name__=='__main__':
-	# Create new net
+	#Create new net
 	#net=Network(4, 1, load_model=False, save_dest='neural_net/net_2')
 
 	#Load existing net
-	net=Network(load_model='neural_net/net_2-0.meta', ckpt_location='neural_net', save_dest='neural_net/net_2')
+	net=Network(load_model='neural_net/net_2.meta', ckpt_location='neural_net', save_dest='neural_net/net_2')
 
-	net.train()
+	net.train(n_epochs=300)

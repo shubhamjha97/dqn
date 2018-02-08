@@ -66,10 +66,10 @@ def write_data(data_point, thresh=500):
 
 def main_train():
 	env=gym.make('CartPole-v0')
-	net=Network(load_model='neural_net/net_2-14103.meta', ckpt_location='neural_net')
-	a=Agent(env, 'neural_net/net_2-14103.meta', 'neural_net')
+	net=Network(load_model='neural_net/net_2-0.meta', ckpt_location='neural_net')
+	a=Agent(env, 'neural_net/net_2-0.meta', 'neural_net')
 
-	NO_EPISODES=100
+	NO_EPISODES=10000
 	TIMESTEPS=100
 	EXPLORATION_PROB=0.2
 	DISCOUNT_FACTOR=0.9 #implement
@@ -101,8 +101,8 @@ def main_train():
 				if VERBOSE:
 					print "episode:", ep, "score:", t
 				break
-		#if ep%TRAIN_EVERY_N==0:
-		#	net.train()
+		if ep%TRAIN_EVERY_N==0:
+			net.train()
 
 if __name__=='__main__':
 	main_train()
