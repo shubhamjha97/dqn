@@ -20,24 +20,27 @@ class Network:
 
 	def __init__(self, in_size=None, out_size=None, load_model=False, ckpt_location='none', save_dest='none', data_location='data/data.csv'):
 
+		
 		if not load_model:
 			self.save_dest=save_dest
-
 			self.X=tf.placeholder(tf.float32, shape=[None, in_size], name='input')
 			self.y_=tf.placeholder(tf.float32, shape=[None], name='labels')
 			self.action=tf.placeholder(tf.int32, shape=[None], name='actions')
 			self.action_one_hot=tf.cast(tf.one_hot(self.action, 2, on_value=1, off_value=0, axis=1), tf.float32)
 
 			tf.add_to_collection('input', self.X)
+			tf.add_to_collection('target', self.y_)
+			tf.add_to_collection('action', self.action)
 
 			self.h1=tf.nn.sigmoid(add_layer(self.X, 4, 256, name='h1'))
 			self.h2=add_layer(self.h1, 256, 512, name='h2')
 			self.y=add_layer(self.h2, 512, 2, 'h3')
 
 			self.y_masked=tf.reduce_sum(tf.multiply(self.y, self.action_one_hot), reduction_indices=[1])######################################
-			self.y_max=tf.reduce_max(self.y, reduction_indices=[1])
+			self.y_max=tf.reduce_max(self.y, reduction_indices=[1], name='y_max')
 
 			tf.add_to_collection('y', self.y)
+			tf.add_to_collection('y_max', self.y_max)
 
 			self.cost=tf.losses.mean_squared_error(labels=self.y_, predictions=self.y_masked)
 			self.train_step=tf.train.AdamOptimizer(0.001).minimize(self.cost)
@@ -53,9 +56,19 @@ class Network:
 			self.saver.save(self.sess, save_dest, global_step=0)#self.global_step)
 			
 		else:
+			self.save_dest=save_dest
+			self.ckpt_location=ckpt_location
+			self.global_step=0
 			self.sess=tf.Session()    
 			self.saver = tf.train.import_meta_graph(load_model)
-			self.saver.restore(self.sess,tf.train.latest_checkpoint(ckpt_location))
+			self.saver.restore(self.sess, tf.train.latest_checkpoint(ckpt_location))
+			self.X=tf.get_collection('input')[0]
+			self.y_=tf.get_collection('target')[0]
+			self.cost=tf.get_collection('cost')[0]
+			self.train_step=tf.get_collection('train_step')[0]
+			self.y=tf.get_collection('y')[0]
+			self.y_max=tf.get_collection('y_max')[0]
+			self.action=tf.get_collection('action')[0]
 
 	def get_batch(self, batch_size):
 		my_data = np.genfromtxt('data/data.csv', delimiter=',')
@@ -100,6 +113,7 @@ class Network:
 				if verbose and step%print_every_n==0:
 					print 'epoch:', epoch, 'step:', step, 'cost', cost_ 
 				if step%save_every_n==0:
+					#print self.save_dest
 					self.saver.save(self.sess, self.save_dest, global_step=0)
 
 	def infer(test_data):
@@ -108,6 +122,10 @@ class Network:
 
 
 if __name__=='__main__':
-	net=Network(4, 1, load_model=False, save_dest='neural_net/net_2')
-	#net=Network(load_model='neural_net/net_2-41956.meta', ckpt_location='neural_net')
+	# Create new net
+	#net=Network(4, 1, load_model=False, save_dest='neural_net/net_2')
+
+	#Load existing net
+	net=Network(load_model='neural_net/net_2-0.meta', ckpt_location='neural_net', save_dest='neural_net/net_2')
+
 	net.train()
