@@ -22,10 +22,12 @@ class Network:
 			self.y_=tf.placeholder(tf.float32, shape=[None], name='labels')
 			self.action=tf.placeholder(tf.int32, shape=[None], name='actions')
 			self.action_one_hot=tf.cast(tf.one_hot(self.action, 2, on_value=1, off_value=0, axis=1), tf.float32)
+			self.lr=tf.placeholder(tf.float32, shape=[])
 
 			tf.add_to_collection('input', self.X)
 			tf.add_to_collection('target', self.y_)
 			tf.add_to_collection('action', self.action)
+			tf.add_to_collection('lr', self.lr)
 
 			self.h1=tf.nn.sigmoid(add_layer(self.X, 4, 256, name='h1'))
 			self.h2=add_layer(self.h1, 256, 512, name='h2')
@@ -38,7 +40,7 @@ class Network:
 			tf.add_to_collection('y_max', self.y_max)
 
 			self.cost=tf.losses.mean_squared_error(labels=self.y_, predictions=self.y_masked)
-			self.train_step=tf.train.AdamOptimizer(0.001).minimize(self.cost)
+			self.train_step=tf.train.AdamOptimizer(self.lr).minimize(self.cost)
 			tf.add_to_collection('cost', self.cost)
 			tf.add_to_collection('train_step', self.train_step)
 
@@ -63,6 +65,7 @@ class Network:
 			
 			self.X=tf.get_collection('input')[0]
 			self.y_=tf.get_collection('target')[0]
+			self.lr=tf.get_collection('lr')[0]
 			self.cost=tf.get_collection('cost')[0]
 			self.train_step=tf.get_collection('train_step')[0]
 			self.y=tf.get_collection('y')[0]
@@ -101,16 +104,16 @@ class Network:
 
 			yield X, y_, action_vec
 
-	def train(self, n_epochs=10, batch_size=128, verbose=True, print_every_n=10, save_every_n=10):
+	def train(self, n_epochs=10, batch_size=128, verbose=True, print_every_n=10, save_every_n=10, lr=0.01):
 		for epoch in range(n_epochs):
 			step=0
 			for X_, labels, action_vec in self.get_batch(batch_size):
 				step+=1
 				self.global_step+=1
 				cost_, _= self.sess.run([self.cost, self.train_step], 
-					feed_dict={self.X:X_, self.y_:labels, self.action:action_vec})
+					feed_dict={self.X:X_, self.y_:labels, self.action:action_vec, self.lr:lr})
 				if verbose and step%print_every_n==0:
-					print 'epoch:', epoch, 'step:', step, 'cost', cost_ 
+					print('epoch:', epoch, 'step:', step, 'cost', cost_) 
 				if step%save_every_n==0:
 					#print self.save_dest
 					self.saver.save(self.sess, self.save_dest, write_meta_graph=False)
@@ -127,4 +130,4 @@ if __name__=='__main__':
 	#Load existing net
 	net=Network(load_model='neural_net/net_2.meta', ckpt_location='neural_net', save_dest='neural_net/net_2')
 
-	net.train(n_epochs=300)
+	net.train(n_epochs=300, lr=0.0001)
