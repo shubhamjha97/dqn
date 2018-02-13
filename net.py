@@ -114,9 +114,9 @@ class Network:
 					feed_dict={self.X:X_, self.y_:labels, self.action:action_vec, self.lr:lr})
 				if verbose and step%print_every_n==0:
 					print('epoch:', epoch, 'step:', step, 'cost', cost_) 
-				if step%save_every_n==0:
+			if epoch%save_every_n==0:
 					#print self.save_dest
-					self.saver.save(self.sess, self.save_dest, write_meta_graph=False)
+				self.saver.save(self.sess, self.save_dest, write_meta_graph=False)
 
 	def infer(test_data):
 		logits=self.sess.run(self.y, feed_dict={self.X:np.train_data})
@@ -130,4 +130,4 @@ if __name__=='__main__':
 	#Load existing net
 	net=Network(load_model='neural_net/net_2.meta', ckpt_location='neural_net', save_dest='neural_net/net_2')
 
-	net.train(n_epochs=300, lr=0.0001)
+	net.train(n_epochs=300, print_every_n=300, save_every_n=3, lr=0.0001)
